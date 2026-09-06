@@ -1,0 +1,74 @@
+name: megapose
+channels:
+  - conda-forge
+  - pytorch
+  - anaconda
+  - defaults
+dependencies:
+  # MegaPose's released checkpoints and code target Python 3.9; keeping this
+  # fixed avoids API drift in serialized models. This is an upstream runtime
+  # constraint, not a tunable perception parameter.
+  - python=3.9
+  - pip
+  - wget
+  - python-wget
+  - joblib
+  # PyTorch 2.8 and TorchVision 0.23 are the matching CUDA 12.8 releases used
+  # here because PyTorch 1.11/CUDA 11.3 predates the RTX 5090's Blackwell GPU.
+  # The pair was validated with a CUDA tensor on this machine. Keep them fixed
+  # together: older builds cannot execute Blackwell kernels, while mismatching
+  # their versions causes unresolved TorchVision operator symbols.
+  - pinocchio
+  - rclone
+  - pillow
+  - pip:
+      # MegaPose references aliases removed in NumPy 2.0. NumPy 1.26.4 is the
+      # final 1.x release and preserves those APIs; raising this to 2.x fails
+      # during module import before inference begins.
+      - numpy==1.26.4
+      - torch==2.8.0
+      - torchvision==0.23.0
+      # Remaining packages mirror the upstream inference dependencies. They
+      # deliberately exclude Jupyter extensions, which do not participate in
+      # inference and currently fail against modern Notebook releases.
+      - meshcat
+      - omegaconf
+      - simplejson
+      # OpenCV 4.10 supports NumPy 1.26 on Python 3.9. OpenCV 5 requires
+      # NumPy 2 and therefore conflicts with MegaPose's legacy NumPy aliases.
+      - opencv-python==4.10.0.84
+      - torchnet
+      - tqdm
+      - lxml
+      - transforms3d
+      - panda3d
+      - xarray
+      - pandas
+      - matplotlib
+      - bokeh
+      - plyfile
+      - trimesh
+      - panda3d-gltf
+      - colorama
+      - pyyaml
+      - scipy
+      - pypng
+      - h5py
+      - seaborn
+      - kornia
+      - pyarrow
+      - dt_apriltags
+      - open3d
+      - structlog
+      - imageio
+      - progressbar
+      - psutil
+      - webdataset
+      - opencv-contrib-python==4.10.0.84
+      # Ultralytics 8.4.142 is the current validated 8.x API used for ndarray BGR input and xyxy
+      # result extraction. Pinning the exact release prevents an unreviewed detector API or model
+      # loader change; 9.x should be tested before adoption. Runtime weights must be a custom
+      # YOLO11n-derived brick detector, not the COCO checkpoint.
+      - ultralytics==8.4.142
+      - roma
+      - torchgeometry

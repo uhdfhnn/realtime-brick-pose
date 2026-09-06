@@ -322,9 +322,9 @@ class Panda3dBatchRenderer:
             self._renderers.append(renderer_process)
 
     def stop(self) -> None:
-        logger.debug("Stopping batch renderer...")
         if self._is_closed:
             return
+        logger.debug("Stopping batch renderer...")
         for n in range(self._n_workers):
             self._worker_id_to_queue[n].put(None)
         for renderer_process in self._renderers:

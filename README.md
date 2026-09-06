@@ -1,4 +1,13 @@
 # MegaPose
+
+## Live LEGO brick pose extension
+
+This repository includes a 10 Hz RGB pipeline for `brick_2x4`, `brick_2x2`, and
+`brick_1x2`: a custom lightweight YOLO detector supplies bounding boxes, MegaPose performs
+object-to-camera initialization, and subsequent frames reuse the previous pose for low-latency
+refinement. See [the live brick setup guide](docs/live_bricks.md) and
+[the example configuration](configs/live_bricks.example.yaml).
+
 This repository contains code, models and dataset for our MegaPose paper. 
 
 Yann Labbé, Lucas Manuelli, Arsalan Mousavian, Stephen Tyree, Stan Birchfield, Jonathan Tremblay, Justin Carpentier, Mathieu Aubry, Dieter Fox, Josef Sivic. “MegaPose: 6D Pose Estimation of Novel Objects via Render & Compare.” In: CoRL 2022.
