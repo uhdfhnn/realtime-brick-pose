@@ -3,6 +3,9 @@
 This pipeline reads the newest RGB camera frame at 10 Hz, runs a custom lightweight YOLO
 detector, and emits one JSON line containing each visible brick's object-to-camera pose.
 
+For the Dexmate Vega 1U head camera, see [Dexmate setup](dexmate.md) and
+`configs/live_bricks.dexmate.example.yaml`. OpenCV remains the default backend.
+
 ## Required assets
 
 1. A calibrated RGB camera and its `K` matrix at the configured resolution.

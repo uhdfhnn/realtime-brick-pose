@@ -19,6 +19,7 @@ import yaml
 
 # MegaPose
 from megapose.datasets.object_dataset import RigidObject, RigidObjectDataset
+from megapose.dexmate_camera import DexmateLatestFrameCamera, validate_dexmate_camera
 from megapose.inference.types import DetectionsType, ObservationTensor, PoseEstimatesType
 from megapose.lib3d.symmetries import DiscreteSymmetry
 from megapose.lib3d.transform import Transform
@@ -512,6 +513,11 @@ def run_live(config: Mapping[str, Any], output_stream: TextIO) -> None:
     validate_files(config, definitions)
     camera_config = _required(config, "camera", "root")
     runtime_config = _required(config, "runtime", "root")
+    backend = camera_config.get("backend", "opencv")
+    if backend not in ("opencv", "dexmate"):
+        raise ValueError(f"Unknown camera backend: {backend!r}")
+    if backend == "dexmate":
+        validate_dexmate_camera(camera_config)
     camera_matrix = np.asarray(_required(camera_config, "K", "camera"), dtype=np.float32)
     if camera_matrix.shape != (3, 3):
         raise ValueError("camera.K must be a 3x3 intrinsic matrix")
@@ -524,7 +530,7 @@ def run_live(config: Mapping[str, Any], output_stream: TextIO) -> None:
     period_s = 1.0 / target_hz
     timeout_s = float(_required(camera_config, "read_timeout_s", "camera"))
     preview_enabled = bool(_required(runtime_config, "preview", "runtime"))
-    camera: Optional[LatestFrameCamera] = None
+    camera: Optional[Union[LatestFrameCamera, DexmateLatestFrameCamera]] = None
     sequence = -1
     expected_resolution = (
         int(_required(camera_config, "height", "camera")),
@@ -533,12 +539,15 @@ def run_live(config: Mapping[str, Any], output_stream: TextIO) -> None:
     frame_id = 0
     next_tick = time.monotonic()
     try:
-        camera = LatestFrameCamera(
-            source=_camera_source(_required(camera_config, "source", "camera")),
-            width=int(_required(camera_config, "width", "camera")),
-            height=int(_required(camera_config, "height", "camera")),
-            requested_fps=float(_required(camera_config, "requested_fps", "camera")),
-        )
+        if backend == "dexmate":
+            camera = DexmateLatestFrameCamera(camera_config)
+        else:
+            camera = LatestFrameCamera(
+                source=_camera_source(_required(camera_config, "source", "camera")),
+                width=int(_required(camera_config, "width", "camera")),
+                height=int(_required(camera_config, "height", "camera")),
+                requested_fps=float(_required(camera_config, "requested_fps", "camera")),
+            )
         while True:
             sleep_s = next_tick - time.monotonic()
             if sleep_s > 0.0:
@@ -572,6 +581,16 @@ def run_live(config: Mapping[str, Any], output_stream: TextIO) -> None:
                 "total_latency_ms": total_latency_ms,
                 "poses": poses,
             }
+            if backend == "dexmate":
+                result.update(
+                    camera_backend=backend,
+                    camera_frame_id=camera_config["frame_id"],
+                    camera_sensor=camera_config.get("sensor", "head_camera"),
+                    camera_image_key=camera_config.get("image_key", "left_rgb"),
+                    capture_timestamp_source="host_receive_time",
+                    sensor_capture_timestamp_s=None,
+                    sensor_age_known=False,
+                )
             output_stream.write(json.dumps(result, separators=(",", ":")) + "\n")
             output_stream.flush()
 

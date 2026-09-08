@@ -1,0 +1,119 @@
+# Copy to live_bricks.dexmate.yaml and fill in measured calibration and asset paths.
+# See docs/dexmate.md. Resolution below is an example, not a verified Vega mode.
+camera:
+  backend: dexmate
+  sensor: head_camera
+  image_key: left_rgb
+  frame_id: head_camera_left_optical
+  width: 1280
+  height: 720
+  # Polling rate only; configure actual stream FPS/resolution on the Jetson.
+  requested_fps: 30
+  read_timeout_s: 5.0
+  # Set true only after verifying that the selected SDK stream is rectified.
+  rectified: false
+  # Required 3x3 rectified intrinsics at the exact resolution above. Never guess.
+  K: null
+
+detector:
+  # Custom YOLO11n-derived weights trained with class names brick_2x4, brick_2x2, brick_1x2.
+  # COCO weights do not contain these classes. The nano backbone is fixed for the 10 Hz latency
+  # target; move to a larger backbone only after measuring missed small-brick detections.
+  weights: ../local_data/brick_detector/best.pt
+  # 0.45 is a provisional dimensionless probability cutoff: lower values admit clutter boxes that
+  # trigger expensive MegaPose initialization; higher values drop partly occluded bricks. Tune on
+  # a held-out camera sequence and keep it configurable across lighting setups.
+  confidence: 0.45
+  # 0.50 is the dimensionless IoU cutoff used by YOLO NMS. It comes from the common detector
+  # starting point, assumes one box per physical brick, and should be lowered if duplicate boxes
+  # appear or raised if adjacent bricks suppress one another.
+  nms_iou: 0.50
+  # 640 pixels is the YOLO11 training/inference baseline and preserves small 1x2 bricks in a
+  # 640x480 view. Smaller input is faster but can erase studs/edges; larger input costs latency.
+  image_size: 640
+  device: cuda:0
+  # FP16 is supported by the RTX 5090 and reduces detector latency/memory. Disable it for CPU or
+  # hardware whose half-precision kernels are unsupported or numerically unstable.
+  half: true
+
+tracker:
+  # 0.20 IoU requires meaningful overlap with the prior frame before reusing its pose. It assumes
+  # motion is modest over 100 ms at 10 Hz. Too low can attach a stale pose after a jump; too high
+  # repeatedly invokes the ~1.1 s coarse initializer. Validate with maximum planned brick speed.
+  minimum_iou: 0.20
+  # One refinement iteration was measured at roughly 20 ms on this machine after warm-up. More
+  # iterations can improve convergence but consume the 100 ms frame budget. Keep at one for live
+  # tracking; use offline traces to justify any increase.
+  refiner_iterations: 1
+  # 0.50 is a provisional lower bound on MegaPose's dimensionless learned pose score. Scores below
+  # it are still published with valid=false but are not reused, forcing coarse reacquisition next
+  # frame. Too low propagates drift; too high causes repeated slow initialization. Calibrate this
+  # on labelled real-camera poses before a robot consumes the validity flag.
+  minimum_pose_score: 0.50
+  # One renderer process is sufficient for this single-camera, at-most-three-object pipeline.
+  # Extra workers consume memory and complicate shutdown; increase only after a multi-object trace
+  # demonstrates renderer starvation.
+  renderer_workers: 1
+  # 128 is the upstream load_named_model default and comfortably contains the 72/576 orientation
+  # scoring chunks used here on a 32 GB RTX 5090. Lowering it saves memory but adds batches; raising
+  # it may OOM. This should remain configurable for smaller GPUs.
+  coarse_batch_size: 128
+
+runtime:
+  # 10 Hz is the requested output cadence, i.e. one current RGB frame every 100 ms. Tracking mode
+  # was measured at ~20 ms MegaPose latency; acquisition/reacquisition is slower and is explicitly
+  # flagged by deadline_missed in each record.
+  target_hz: 10.0
+  # Preview is off for headless robot runs because GUI event handling can add latency. Enable only
+  # during calibration/debug; press q in the window to stop.
+  preview: false
+
+objects:
+  - label: brick_2x4
+    yolo_class_name: brick_2x4
+    mesh_path: ../local_data/brick_meshes/brick_2x4.ply
+    # Nominal millimetres from the supplied 2x4 specification. x is the long side, y the short
+    # side, z upward; wrong scale creates the same proportional error in estimated translation.
+    dimensions_mm: [31.8, 15.8, 9.6]
+    object_frame:
+      origin: geometric center of the nominal outer bounding box
+      axes: {x: along 4-stud length, y: along 2-stud width, z: upward through studs}
+    symmetry:
+      # A plain centered 2x4 mesh is unchanged by +180 degrees about object +z (right-hand rule).
+      # Identity is inserted by MegaPose. Remove this transform if asymmetric texture/markings are
+      # represented; a false symmetry can make the published grasp orientation flip by 180 deg.
+      discrete_transforms:
+        - [[-1.0, 0.0, 0.0, 0.0], [0.0, -1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
+
+  - label: brick_2x2
+    yolo_class_name: brick_2x2
+    mesh_path: ../local_data/brick_meshes/brick_2x2.ply
+    # Nominal millimetres for a square 2x2 brick, in the same centered x/y/z frame as 2x4.
+    dimensions_mm: [15.8, 15.8, 9.6]
+    object_frame:
+      origin: geometric center of the nominal outer bounding box
+      axes: {x: along one 2-stud side, y: along the other 2-stud side, z: upward through studs}
+    symmetry:
+      # A plain centered 2x2 mesh has +90/+180/+270 degree rotations about object +z. Identity is
+      # implicit. Remove invalid transforms if texture, logo orientation, or underside details make
+      # the actual mesh asymmetric; otherwise pose continuity benefits from all four equivalents.
+      discrete_transforms:
+        - [[0.0, -1.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
+        - [[-1.0, 0.0, 0.0, 0.0], [0.0, -1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
+        - [[0.0, 1.0, 0.0, 0.0], [-1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
+
+  - label: brick_1x2
+    yolo_class_name: brick_1x2
+    mesh_path: ../local_data/brick_meshes/brick_1x2.ply
+    # Nominal millimetres for a 1x2 brick. Confirm these against the supplied production mesh;
+    # different LEGO-compatible parts can vary, and scale error directly biases camera-frame xyz.
+    dimensions_mm: [15.8, 7.8, 9.6]
+    object_frame:
+      origin: geometric center of the nominal outer bounding box
+      axes: {x: along 2-stud length, y: along 1-stud width, z: upward through studs}
+    symmetry:
+      # A plain centered 1x2 mesh is invariant under +180 degrees about object +z. Identity is
+      # implicit. As with 2x4, asymmetric appearance must be reflected by removing this transform.
+      discrete_transforms:
+        - [[-1.0, 0.0, 0.0, 0.0], [0.0, -1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
+
