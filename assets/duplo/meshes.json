@@ -1,0 +1,36 @@
+{
+  "duplo_2x2": {
+    "part_id": "3437",
+    "mesh": "duplo_2x2.obj",
+    "units": "mm",
+    "dimensions_mm": [
+      32.0,
+      32.0,
+      23.6
+    ],
+    "origin": "full mesh bounding-box center including studs",
+    "axes": {
+      "x": "long side (2x4)",
+      "y": "short side",
+      "z": "up through studs"
+    },
+    "triangles": 572
+  },
+  "duplo_2x4": {
+    "part_id": "3011",
+    "mesh": "duplo_2x4.obj",
+    "units": "mm",
+    "dimensions_mm": [
+      64.0,
+      32.0,
+      23.6
+    ],
+    "origin": "full mesh bounding-box center including studs",
+    "axes": {
+      "x": "long side (2x4)",
+      "y": "short side",
+      "z": "up through studs"
+    },
+    "triangles": 1180
+  }
+}
