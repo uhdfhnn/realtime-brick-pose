@@ -75,7 +75,7 @@ def draw_pose_preview(bgr, poses, K, mode, latency_ms, *, grid=True, axes=True):
                 if valid[i] and 0 <= uv[i, 0] < width and 0 <= uv[i, 1] < height:
                     text(name, tuple(np.rint(uv[i]).astype(int)), axis_color)
         xyz = np.asarray(pose['position_m']) * 1000
-        status = 'VALID' if pose['valid'] else 'LOW SCORE'
+        status = 'SCORE PASS' if pose['valid'] else 'LOW SCORE'
         text(f"{pose['label']}  xyz(mm)=({xyz[0]:.1f}, {xyz[1]:.1f}, {xyz[2]:.1f})"
              f"  det={pose['detection_confidence']:.2f} pose={pose['pose_score']:.2f} {status}",
              (10, 62 + index * 22), color)

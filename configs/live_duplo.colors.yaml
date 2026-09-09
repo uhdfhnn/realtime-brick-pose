@@ -1,0 +1,158 @@
+# Color bootstrap: blue=2x4, red=2x2, one each. Keep both in the outlined pixel ROI.
+# K: supplied SN53756133 rectified 960x600 session; refresh after calibration changes.
+camera:
+  backend: dexmate
+  sensor: head_camera
+  image_key: left_rgb
+  frame_id: head_camera_left_optical
+  width: 960
+  height: 600
+  requested_fps: 30
+  read_timeout_s: 5.0
+  rectified: true
+  K:
+  - - 367.4278259277344
+    - 0.0
+    - 483.36553955078125
+  - - 0.0
+    - 367.4278259277344
+    - 326.57806396484375
+  - - 0.0
+    - 0.0
+    - 1.0
+color_detector:
+  roi_xyxy:
+  - 350
+  - 380
+  - 610
+  - 600
+  min_area_px: 40
+  max_area_px: 6000
+  min_fill_ratio: 0.25
+  padding_px: 2
+  colors:
+  - label: duplo_2x4
+    hsv_ranges:
+    - - - 90
+        - 90
+        - 45
+      - - 135
+        - 255
+        - 255
+  - label: duplo_2x2
+    hsv_ranges:
+    - - - 0
+        - 100
+        - 70
+      - - 12
+        - 255
+        - 255
+    - - - 170
+        - 100
+        - 70
+      - - 179
+        - 255
+        - 255
+tracker:
+  minimum_iou: 0.2
+  refiner_iterations: 1
+  minimum_pose_score: 0.5
+  renderer_workers: 1
+  coarse_batch_size: 32
+runtime:
+  target_hz: 10.0
+objects:
+- label: duplo_2x2
+  yolo_class_name: duplo_2x2
+  mesh_path: ../assets/duplo/duplo_2x2.obj
+  dimensions_mm:
+  - 32.0
+  - 32.0
+  - 23.6
+  object_frame:
+    origin: geometric center of the nominal outer bounding box
+    axes:
+      x: long side (2x4)
+      y: short side
+      z: up through studs
+  symmetry:
+    discrete_transforms:
+    - - - 0.0
+        - -1.0
+        - 0.0
+        - 0.0
+      - - 1.0
+        - 0.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - 0.0
+        - 1.0
+        - 0.0
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 1.0
+    - - - -1.0
+        - 0.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - -1.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - 0.0
+        - 1.0
+        - 0.0
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 1.0
+    - - - 0.0
+        - 1.0
+        - 0.0
+        - 0.0
+      - - -1.0
+        - 0.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - 0.0
+        - 1.0
+        - 0.0
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 1.0
+- label: duplo_2x4
+  yolo_class_name: duplo_2x4
+  mesh_path: ../assets/duplo/duplo_2x4.obj
+  dimensions_mm:
+  - 64.0
+  - 32.0
+  - 23.6
+  object_frame:
+    origin: geometric center of the nominal outer bounding box
+    axes:
+      x: long side (2x4)
+      y: short side
+      z: up through studs
+  symmetry:
+    discrete_transforms:
+    - - - -1.0
+        - 0.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - -1.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - 0.0
+        - 1.0
+        - 0.0
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 1.0
