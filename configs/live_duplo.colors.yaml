@@ -1,31 +1,31 @@
 # Color bootstrap: blue=2x4, red=2x2, one each. Keep both in the outlined pixel ROI.
-# K: supplied SN53756133 rectified 960x600 session; refresh after calibration changes.
+# K: supplied SN53756133 rectified 1920x1200 session; head_j3=-0.5056 rad; refresh after calibration changes.
 camera:
   backend: dexmate
   sensor: head_camera
   image_key: left_rgb
   frame_id: head_camera_left_optical
-  width: 960
-  height: 600
+  width: 1920
+  height: 1200
   requested_fps: 30
   read_timeout_s: 5.0
   rectified: true
   K:
-  - - 367.4278259277344
+  - - 734.7183837890625
     - 0.0
-    - 483.36553955078125
+    - 966.633056640625
   - - 0.0
-    - 367.4278259277344
-    - 326.57806396484375
+    - 734.7183837890625
+    - 653.0730590820312
   - - 0.0
     - 0.0
     - 1.0
 color_detector:
   roi_xyxy:
-  - 350
-  - 380
-  - 610
+  - 780
   - 600
+  - 1200
+  - 900
   min_area_px: 40
   max_area_px: 6000
   min_fill_ratio: 0.25
