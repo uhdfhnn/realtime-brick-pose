@@ -18,10 +18,13 @@ def main() -> None:
         type=Path,
         help="Write poses to this file instead of standard output",
     )
+    parser.add_argument("--preview", action="store_true", help="Show Linux RGB grid and 3D pose overlay")
     args = parser.parse_args()
 
     set_logging_level("warning")
     config = load_config(args.config)
+    if args.preview:
+        config["runtime"]["preview"] = True
     if args.output_jsonl is None:
         run_live(config, sys.stdout)
     else:

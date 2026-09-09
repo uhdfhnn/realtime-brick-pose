@@ -19,6 +19,7 @@ import yaml
 
 # MegaPose
 from megapose.datasets.object_dataset import RigidObject, RigidObjectDataset
+from megapose.brick_preview import draw_pose_preview
 from megapose.dexmate_camera import DexmateLatestFrameCamera, validate_dexmate_camera
 from megapose.inference.types import DetectionsType, ObservationTensor, PoseEstimatesType
 from megapose.lib3d.symmetries import DiscreteSymmetry
@@ -476,36 +477,6 @@ def _camera_source(value: Any) -> Union[int, str]:
     return int(value) if value.isdecimal() else value
 
 
-def _draw_preview(bgr: np.ndarray, poses: List[Dict[str, Any]], mode: str) -> np.ndarray:
-    preview = bgr.copy()
-    for pose in poses:
-        x1, y1, x2, y2 = [int(value) for value in pose["bbox_xyxy_px"]]
-        # Green, two-pixel outlines remain visible on 640x480 RGB without hiding the small brick.
-        # These display-only BGR values/pixel widths come from visual convention, are valid at the
-        # configured preview resolution, and do not affect detection or pose.
-        preview_color_bgr = (0, 255, 0)
-        preview_line_width_px = 2
-        cv2.rectangle(preview, (x1, y1), (x2, y2), preview_color_bgr, preview_line_width_px)
-        z_m = pose["position_m"][2]
-        # Eight pixels places the label just above its box at 640x480. A smaller offset overlaps the
-        # edge; a larger one wastes view area. The 0.5 font scale and one-pixel stroke prioritize
-        # compact debugging text and are intentionally display-only, not perception parameters.
-        text_offset_px = 8
-        text_scale = 0.5
-        text_line_width_px = 1
-        cv2.putText(
-            preview,
-            f"{pose['label']} z={z_m:.3f}m {mode}",
-            (x1, max(y1 - text_offset_px, 0)),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            text_scale,
-            preview_color_bgr,
-            text_line_width_px,
-            cv2.LINE_AA,
-        )
-    return preview
-
-
 def run_live(config: Mapping[str, Any], output_stream: TextIO) -> None:
     """Run the latest-frame loop until Ctrl-C or q in the optional preview window."""
 
@@ -531,6 +502,9 @@ def run_live(config: Mapping[str, Any], output_stream: TextIO) -> None:
     timeout_s = float(_required(camera_config, "read_timeout_s", "camera"))
     preview_enabled = bool(_required(runtime_config, "preview", "runtime"))
     camera: Optional[Union[LatestFrameCamera, DexmateLatestFrameCamera]] = None
+    show_grid = True
+    show_axes = True
+    window_name = "Live brick poses"
     sequence = -1
     expected_resolution = (
         int(_required(camera_config, "height", "camera")),
@@ -539,6 +513,9 @@ def run_live(config: Mapping[str, Any], output_stream: TextIO) -> None:
     frame_id = 0
     next_tick = time.monotonic()
     try:
+        if preview_enabled:
+            cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+            cv2.resizeWindow(window_name, expected_resolution[1], expected_resolution[0])
         if backend == "dexmate":
             camera = DexmateLatestFrameCamera(camera_config)
         else:
@@ -595,14 +572,18 @@ def run_live(config: Mapping[str, Any], output_stream: TextIO) -> None:
             output_stream.flush()
 
             if preview_enabled:
-                cv2.imshow("Live brick poses", _draw_preview(bgr, poses, mode))
-                # One millisecond is OpenCV's shortest practical GUI event wait and leaves nearly
-                # the full 100 ms perception budget. The low-byte mask is OpenCV's documented
-                # cross-platform key-code normalization; changing either affects preview input
-                # responsiveness only, not pose estimation, so both remain intentionally fixed.
-                preview_wait_ms = 1
-                key_code_mask = 0xFF
-                if cv2.waitKey(preview_wait_ms) & key_code_mask == ord("q"):
+                cv2.imshow(window_name, draw_pose_preview(
+                    bgr, poses, camera_matrix, mode, total_latency_ms,
+                    grid=show_grid, axes=show_axes,
+                ))
+                key = cv2.waitKey(1) & 0xFF
+                if key in (ord("q"), 27):
+                    break
+                if key == ord("g"):
+                    show_grid = not show_grid
+                if key == ord("a"):
+                    show_axes = not show_axes
+                if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
                     break
 
             frame_id += 1
