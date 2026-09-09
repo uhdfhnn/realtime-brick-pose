@@ -1,6 +1,9 @@
 # Color bootstrap: blue=2x4, red=2x2, one each. Keep both in the outlined pixel ROI.
 # K: supplied SN53756133 rectified 1920x1200 session; head_j3=-0.5056 rad; refresh after calibration changes.
 camera:
+  # SDK homes on connection; restore this pose before reading frames.
+  # Both full streaming and --camera-only move the head with this config.
+  head_target_rad: [0.0, 0.0, -0.5056]
   backend: dexmate
   sensor: head_camera
   image_key: left_rgb

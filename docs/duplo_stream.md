@@ -1,6 +1,6 @@
 # DUPLO streaming on the Linux desktop
 
-This runner uses new head-camera frames, the measured rectified 960x600 intrinsics,
+This runner uses new head-camera frames, the measured rectified 1920x1200 intrinsics,
 and bundled DUPLO meshes. Color proposals replace manually entered snapshot boxes:
 blue means 2x4, red means 2x2. It supports one of each inside the outlined image
 region. These are color heuristics, not a trained brick classifier. Other matching
@@ -32,6 +32,19 @@ Open http://127.0.0.1:8090 in a browser on the Linux desktop. The existing
 container must use `--network host`. No X11 socket mount or new GUI package is
 needed for the browser. Xvfb provides the renderer's offscreen display.
 
+The current config sets `camera.head_target_rad: [0, 0, -0.5056]`. Both full
+streaming and camera-only mode create one Robot session. SDK initialization may
+home the head, then the adapter restores the configured pose in steps of at most
+0.05 rad with 0.4-second waits. It verifies three consecutive readings within
+0.005 rad before starting acquisition. Invalid limits, feedback or a 60-second
+timeout abort startup. The session remains alive until exit. Do not create a
+second Robot session while streaming: it can send another home command.
+
+On shutdown the SDK may release holding behavior; the user observed the head
+relaxing after the control process exited. This runner does not promise pose
+holding after exit. Head angles determine the image ROI; camera intrinsics do
+not change merely because the head moves.
+
 For color-box diagnostics without loading MegaPose, stop with Ctrl+C and run:
 
 ```bash
@@ -53,7 +66,8 @@ camera or inference FPS.
 
 Results append to `local_data/duplo_stream.jsonl`. Pose translations are meters,
 quaternions are xyzw, and timestamps are host receive times, not sensor exposure
-timestamps. There is no robot-base transform or robot motion command. The viewer
+timestamps. There is no robot-base transform. Startup explicitly positions the
+head as described above; the adapter does not command the arms. The viewer
 binds only to loopback; it serves the preview and status, not repository files.
 
 Validation: CPU tests cover moving/disappearing color proposals, ROI filtering,

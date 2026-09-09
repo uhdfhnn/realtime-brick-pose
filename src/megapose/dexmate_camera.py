@@ -1,4 +1,4 @@
-"""Read-only Vega camera adapter; no motor commands or mandatory dexcontrol import."""
+"""Vega camera adapter with optional explicit head positioning in one SDK session."""
 
 from __future__ import annotations
 
@@ -7,6 +7,45 @@ import time
 from typing import Any, Mapping
 
 import numpy as np
+
+
+def move_head_smooth(robot, target, *, step=0.05, wait=0.4, tol=0.005,
+                     margin=0.02, timeout=60.0):
+    """Reach an exact calibrated head pose; reject rather than clip unsafe goals."""
+    goal = np.asarray(target, dtype=float)
+    if goal.shape != (3,) or not np.isfinite(goal).all():
+        raise ValueError('head_target_rad must contain three finite joint angles')
+    parameters = np.asarray([step, wait, tol, margin, timeout], dtype=float)
+    if not np.isfinite(parameters).all() or np.any(parameters <= 0):
+        raise ValueError('Head motion parameters must be finite and positive')
+    head = robot.head
+    limits = np.asarray(head.joint_pos_limit, dtype=float)
+    if (limits.shape != (3, 2) or not np.isfinite(limits).all()
+            or np.any(limits[:, 0] + margin >= limits[:, 1] - margin)):
+        raise ValueError('Invalid head joint limits')
+    if np.any(goal < limits[:, 0] + margin) or np.any(goal > limits[:, 1] - margin):
+        raise ValueError('Calibrated head target is outside joint limits with margin')
+    deadline = time.monotonic() + timeout
+    stable = 0
+    while True:
+        cur = np.asarray(head.get_joint_pos(), dtype=float).copy()
+        if cur.shape != (3,) or not np.isfinite(cur).all():
+            raise ValueError('Invalid head joint feedback')
+        if np.any(cur < limits[:, 0]) or np.any(cur > limits[:, 1]):
+            raise ValueError('Head feedback is outside joint limits')
+        if time.monotonic() >= deadline:
+            raise TimeoutError(f'Head did not settle at {goal.tolist()}; measured {cur.tolist()}')
+        err = goal - cur
+        if np.max(np.abs(err)) <= tol:
+            # Override any pending SDK home target even if feedback starts at goal.
+            head.set_joint_pos(goal.copy(), wait_time=0.0)
+            stable += 1
+            if stable >= 3:
+                return cur
+        else:
+            stable = 0
+            head.set_joint_pos(cur + np.clip(err, -step, step), wait_time=0.0)
+        time.sleep(wait)
 
 
 def validate_dexmate_camera(config: Mapping[str, Any]) -> np.ndarray:
@@ -28,6 +67,10 @@ def validate_dexmate_camera(config: Mapping[str, Any]) -> np.ndarray:
         value = float(config[field])
         if not np.isfinite(value) or value <= 0:
             raise ValueError(f"camera.{field} must be finite and positive")
+    if 'head_target_rad' in config:
+        goal = np.asarray(config['head_target_rad'], dtype=float)
+        if goal.shape != (3,) or not np.isfinite(goal).all():
+            raise ValueError('head_target_rad must contain three finite joint angles')
     return K
 
 
@@ -68,8 +111,13 @@ class DexmateLatestFrameCamera:
             # Enable only the requested client sensor; do not mutate robot/service settings.
             for name, sensor in configs.sensors.items():
                 sensor.enabled = name == sensor_name
+            print('Creating Robot session: SDK initialization may move the head to home.', flush=True)
             self._robot = Robot(configs=configs)
         try:
+            if 'head_target_rad' in config:
+                print(f"Positioning head at {config['head_target_rad']} rad before acquisition", flush=True)
+                position = move_head_smooth(self._robot, config['head_target_rad'])
+                print(f'Head settled at {position.tolist()}; keeping this session alive', flush=True)
             self._sensor = getattr(self._robot.sensors, sensor_name)
             self._thread = threading.Thread(target=self._reader, daemon=True,
                                             name="dexmate-brick-camera")

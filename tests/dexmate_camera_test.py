@@ -99,6 +99,58 @@ class AdapterTest(unittest.TestCase):
         self.camera.close()
 
 
+class HeadMotionTest(unittest.TestCase):
+    def head(self, moving=True):
+        cur = np.zeros(3)
+        commands = []
+        def command(q, wait_time):
+            commands.append(np.array(q).copy())
+            if moving:
+                cur[:] = q
+        return SimpleNamespace(get_joint_pos=lambda: cur.copy(),
+                               joint_pos_limit=[[-1, 1]] * 3,
+                               set_joint_pos=command), commands
+
+    def test_bounded_steps_and_settled_target(self):
+        head, commands = self.head()
+        with patch.object(module.time, 'sleep'):
+            final = module.move_head_smooth(SimpleNamespace(head=head), [0, 0, -.5056])
+        self.assertTrue(np.allclose(final, [0, 0, -.5056]))
+        self.assertLessEqual(np.max(np.abs(np.diff(np.vstack([np.zeros(3), commands]), axis=0))), .050001)
+        self.assertTrue(all(np.allclose(q, final) for q in commands[-3:]))
+
+    def test_invalid_target_sends_no_commands(self):
+        for target in ([0, 0, float('nan')], [0, 0, -2], [0, 0]):
+            head, commands = self.head()
+            with self.assertRaises(ValueError):
+                module.move_head_smooth(SimpleNamespace(head=head), target)
+            self.assertEqual(commands, [])
+
+    def test_stalled_head_times_out(self):
+        head, commands = self.head(moving=False)
+        with patch.object(module.time, 'monotonic', side_effect=[0, 0, 61]), patch.object(module.time, 'sleep'):
+            with self.assertRaises(TimeoutError):
+                module.move_head_smooth(SimpleNamespace(head=head), [0, 0, -.5056])
+        self.assertEqual(len(commands), 1)
+
+    def test_failed_positioning_closes_owned_session_before_acquisition(self):
+        shutdown_calls = []
+        sensor = Sensor()
+        robot = SimpleNamespace(sensors=SimpleNamespace(head_camera=sensor),
+                                shutdown=lambda: shutdown_calls.append(True))
+        configs = SimpleNamespace(sensors={'head_camera': SimpleNamespace(enabled=False)})
+        modules = {'dexcontrol': SimpleNamespace(), 'dexcontrol.core': SimpleNamespace(),
+                   'dexcontrol.core.config': SimpleNamespace(get_robot_config=lambda: configs),
+                   'dexcontrol.robot': SimpleNamespace(Robot=lambda **kw: robot)}
+        settings = config()
+        settings['head_target_rad'] = [0, 0, -.5056]
+        with patch.dict(sys.modules, modules), patch.object(module, 'move_head_smooth', side_effect=TimeoutError):
+            with self.assertRaises(TimeoutError):
+                module.DexmateLatestFrameCamera(settings)
+        self.assertEqual(shutdown_calls, [True])
+        self.assertIsNone(sensor.keys)
+
+
 class ConfigurationTest(unittest.TestCase):
     def test_missing_or_invalid_calibration(self):
         for field, value in [('K', None), ('K', np.zeros((3, 3))),

@@ -27,21 +27,21 @@ class ColorTest(unittest.TestCase):
         self.detector = ColorBrickDetector(self.config['color_detector'])
 
     def test_moves_and_disappears(self):
-        a = np.zeros((600,960,3), np.uint8)
-        a[450:470,400:435] = [255,0,0]
-        a[500:520,550:570] = [0,0,255]
+        a = np.zeros((1200,1920,3), np.uint8)
+        a[666:700,925:974] = [255,0,0]
+        a[683:713,1064:1097] = [0,0,255]
         boxes = {x['label']:x for x in self.detector.detect(a)}
         self.assertEqual(set(boxes), {'duplo_2x4','duplo_2x2'})
-        b = np.zeros_like(a); b[480:500,450:485] = [255,0,0]
+        b = np.zeros_like(a); b[730:764,970:1019] = [255,0,0]
         moved = self.detector.detect(b)
         self.assertEqual(len(moved),1)
         self.assertGreater(moved[0]['bbox_xyxy'][0],boxes['duplo_2x4']['bbox_xyxy'][0])
         self.assertEqual(self.detector.detect(np.zeros_like(a)), [])
 
     def test_outside_roi_and_tiny_noise_ignored(self):
-        a=np.zeros((600,960,3),np.uint8)
+        a=np.zeros((1200,1920,3),np.uint8)
         a[100:200,100:200]=[255,0,0]
-        a[450:452,400:402]=[0,0,255]
+        a[666:668,925:927]=[0,0,255]
         self.assertEqual(self.detector.detect(a),[])
 
     def test_invalid_resolution_fails(self):
@@ -75,7 +75,7 @@ class BrowserTest(unittest.TestCase):
 class RunnerTest(unittest.TestCase):
     def run_mode(self,camera_only):
         events=[]
-        image=np.zeros((600,960,3),np.uint8);image[450:470,400:435]=[255,0,0]
+        image=np.zeros((1200,1920,3),np.uint8);image[666:700,925:974]=[255,0,0]
         class Camera:
             def __init__(self,config):self.reads=0
             def read_latest(self,*args):
@@ -94,7 +94,7 @@ class RunnerTest(unittest.TestCase):
             def estimate(self,rgb,K,detections):
                 self_test.assertEqual(len(detections),1)
                 self_test.assertEqual(detections[0].label,'duplo_2x4')
-                self_test.assertEqual(rgb[455,410].tolist(),[0,0,255])
+                self_test.assertEqual(rgb[680,940].tolist(),[0,0,255])
                 events.append('estimated')
                 return [],'no_detection',1.
             def close(self):events.append('estimator closed')
