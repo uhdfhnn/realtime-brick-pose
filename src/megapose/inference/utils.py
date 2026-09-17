@@ -60,7 +60,7 @@ def load_detector(run_id: str) -> torch.nn.Module:
     cfg = check_update_config_detector(cfg)
     label_to_category_id = cfg.label_to_category_id
     model = create_model_detector(cfg, len(label_to_category_id))
-    ckpt = torch.load(run_dir / "checkpoint.pth.tar")
+    ckpt = torch.load(run_dir / "checkpoint.pth.tar", weights_only=False)
     ckpt = ckpt["state_dict"]
     model.load_state_dict(ckpt)
     model = model.cuda().eval()
@@ -133,7 +133,7 @@ def load_pose_models(
         cfg: TrainingConfig = load_cfg(run_dir / "config.yaml")
         cfg = check_update_config_pose(cfg)
         model = create_model_pose(cfg, renderer=renderer, mesh_db=mesh_db_batched)
-        ckpt = torch.load(run_dir / "checkpoint.pth.tar")
+        ckpt = torch.load(run_dir / "checkpoint.pth.tar", weights_only=False)
         ckpt = ckpt["state_dict"]
         ckpt = change_keys_of_older_models(ckpt)
         model.load_state_dict(ckpt)
