@@ -1,0 +1,24 @@
+# Offline planning template. Nulls require measured hardware data, not sim defaults.
+urdf: null
+base_frame: base_link
+ee_frame: null  # actual arm end-effector link in the supplied URDF
+arm_joint_names: [R_arm_j1, R_arm_j2, R_arm_j3, R_arm_j4, R_arm_j5, R_arm_j6, R_arm_j7]
+camera_frame_id: head_camera_left_optical
+object_origin: geometric center of the nominal outer bounding box
+camera_transform:
+  mode: explicit
+  T_base_camera: null  # measured at the image's head pose
+  # Alternative: mode: urdf, frame: zed_depth_frame, T_frame_camera: calibrated 4x4.
+  # Do not assume the rectified left optical frame exactly equals zed_depth_frame.
+T_ee_tcp: null  # TCP coordinates expressed in the URDF EE frame
+T_object_tcp:
+  duplo_2x2: null  # desired TCP pose expressed in this mesh's object frame
+  duplo_2x4: null
+approach_axis_base: [0, 0, 1]  # confirm table normal; offsets along this direction
+pregrasp_m: 0.08  # initial planning choice, not validated on hardware
+lift_m: 0.10
+max_joint_step_rad: 0.01  # offline sampling only; does not define velocity
+ik:
+  position_tolerance_m: 0.002
+  rotation_tolerance_rad: 0.035
+  max_nfev: 1000
